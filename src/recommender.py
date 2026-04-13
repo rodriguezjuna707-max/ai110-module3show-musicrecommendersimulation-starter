@@ -48,11 +48,11 @@ class Recommender:
 # Point values awarded per feature.
 # Genre and mood use binary (exact) matching.
 # Numeric features use proximity: points × (1 − |song_value − user_value|).
-# Maximum possible score = 2.0 + 1.0 + 1.0 + 0.6 + 0.25 + 0.15 = 5.0
+# Maximum possible score = 1.0 + 1.0 + 2.0 + 0.6 + 0.25 + 0.15 = 5.0
 POINTS = {
-    "genre":        2.00,   # strongest signal — hard stylistic boundary
+    "genre":        1.00,   # strongest signal — hard stylistic boundary
     "mood":         1.00,   # emotional intent — slightly less rigid than genre
-    "energy":       1.00,   # widest spread in catalog (0.28–0.97), most discriminating
+    "energy":       2.00,   # widest spread in catalog (0.28–0.97), most discriminating
     "valence":      0.60,   # secondary emotional coloring
     "danceability": 0.25,   # minor refinement
     "acousticness": 0.15,   # minor refinement
