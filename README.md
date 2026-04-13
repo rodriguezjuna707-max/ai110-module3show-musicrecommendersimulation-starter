@@ -17,17 +17,56 @@ Replace this paragraph with your own summary of what your version does.
 
 ## How The System Works
 
-Explain your design in plain language.
+This system scores every song in the catalog based on a user's preferences for genre, mood, energy, valence, danceability, and acousticness. Genre and mood are the most important because they show what a listener truly wants at any moment. Numeric features are scored by how close they are to the target rather than just by loudness or speed. A song that matches your desired energy ranks higher than one that is only louder or faster. Each recommendation comes with a clear explanation so you can understand why a song was selected.
 
-Some prompts to answer:
+- Each `Song` uses: `genre`, `mood`, `energy`, `valence`, `danceability`, `acousticness`
+- The `UserProfile` stores: a preferred genre, mood, and target value for each numeric feature
+- Scores are computed as a weighted proximity sum, normalized to a 0.0–1.0 scale
+- All 18 songs are scored and sorted; the top k are returned with explanations
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
+---
 
-You can include a simple diagram or bullet list if helpful.
+### Algorithm Recipe
+
+**Step 1 — Load the Catalog**
+Read every row from `songs.csv` and cast numeric columns (`energy`, `valence`, `danceability`, `acousticness`, `tempo_bpm`) from strings to floats. All 18 songs enter the scoring pipeline.
+
+**Step 2 — Score Each Song**
+For every song, compute a normalized score in [0.0, 1.0] using this formula:
+
+```
+score = (
+    0.30 × genre_match        +   # 1.0 if exact match, else 0.0
+    0.30 × mood_match         +   # 1.0 if exact match, else 0.0
+    0.20 × (1 − |song.energy       − user.energy|)       +
+    0.12 × (1 − |song.valence      − user.valence|)      +
+    0.05 × (1 − |song.danceability − user.danceability|) +
+    0.03 × (1 − |song.acousticness − user.acousticness|)
+)
+```
+
+Weight rationale:
+- **Genre (0.30)** and **mood (0.30)** together carry 60% of the score. Genre is a hard stylistic boundary; mood is the user's emotional intent. They are weighted equally because mood cuts across genres — a chill user might enjoy lofi *or* ambient *or* jazz.
+- **Energy (0.20)** is the most discriminating numeric feature in the catalog (range 0.28–0.97), so it gets the strongest numeric weight.
+- **Valence (0.12)**, **danceability (0.05)**, and **acousticness (0.03)** handle fine-grained refinement once the top candidates are already surfaced.
+
+**Step 3 — Generate an Explanation**
+After scoring, the system checks which features drove the result:
+- Exact genre or mood match → named explicitly
+- Numeric similarity ≥ 0.85 → noted as "close to your target"
+- No strong signal → falls back to "partial match across multiple features"
+
+**Step 4 — Rank and Return Top K**
+All 18 scored songs are sorted by score descending. The top `k` (default 5) are returned as `(song, score, explanation)` tuples. No song is excluded before scoring.
+
+---
+
+### Potential Biases
+
+- **Genre over-prioritization:** Because genre and mood together account for 60% of the score, a song that perfectly matches genre and mood but has mismatched energy will still outrank a song with no genre match but a near-perfect numeric profile. A user who listens across genres could miss great discoveries.
+- **Small catalog amplifies exact-match luck:** With 15 distinct genres across only 18 songs, most genres appear just once. If a user's favorite genre has no representative in the catalog, they score at most 0.70 — effectively penalized for an unusual taste, not a flaw in their preferences.
+- **Mood labels are subjective:** "Chill" and "relaxed" feel similar to a human listener, but the binary match treats them as completely different. A jazz fan in a relaxed mood gets no mood credit for a chill lofi song, even though the vibe is close.
+- **No listening history:** The system treats every user identically on the first run. It cannot learn that a specific user always skips high-energy songs despite listing `intense` as their favorite mood.
 
 ---
 
@@ -42,6 +81,7 @@ You can include a simple diagram or bullet list if helpful.
    source .venv/bin/activate      # Mac or Linux
    .venv\Scripts\activate         # Windows
 
+   ```
 2. Install dependencies
 
 ```bash
@@ -101,12 +141,11 @@ Write 1 to 2 paragraphs here about what you learned:
 - about how recommenders turn data into predictions
 - about where bias or unfairness could show up in systems like this
 
-
 ---
 
 ## 7. `model_card_template.md`
 
-Combines reflection and model card framing from the Module 3 guidance. :contentReference[oaicite:2]{index=2}  
+Combines reflection and model card framing from the Module 3 guidance. :contentReference[oaicite:2]{index=2}
 
 ```markdown
 # 🎧 Model Card - Music Recommender Simulation
@@ -209,3 +248,4 @@ A few sentences about what you learned:
 - How did building this change how you think about real music recommenders
 - Where do you think human judgment still matters, even if the model seems "smart"
 
+```
